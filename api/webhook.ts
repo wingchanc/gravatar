@@ -91,31 +91,40 @@ client.messages.onMessageSentToBusiness(async (event) => {
     }
 
     console.log(`Message content: ${messageContent}`);
+    console.log(`Checking if message contains "wix": ${messageContent?.toLowerCase().includes("wix")}`);
 
     if (messageContent?.toLowerCase().includes("wix")) {
+      console.log(`Message contains "wix" - sending spam alert...`);
       const message = "🚨 Scammer likes to pretend to be Wix Support or Wix Sales to get your money. Don't fall for it!"
-      await elevatedClient.messages.sendMessage(event.data.conversationId!, {
-        badges: [{
-          text: "Chat Spam Alert",
-          badgeVisibility: "BUSINESS",
-          iconUrl: "https://static.wixstatic.com/shapes/bec40d_8dc570e465714337a93f5f9c691c209b.svg"
-        }],
-        content: {
-          previewText: message,
-          "basic": {
-            "items": [{
-              "text": message
-            }]
-          }
-        },
-        sourceChannel: "CHAT",
-        visibility: "BUSINESS",
-        direction: "PARTICIPANT_TO_BUSINESS",
-      }, {
-        sendAs: "CALLER",
-        sendNotifications: false,
-      })
-      console.log(`Sent message to conversation ${event.data.conversationId}`);
+      
+      try {
+        console.log(`Attempting to send message to conversation ${event.data.conversationId}`);
+        const result = await elevatedClient.messages.sendMessage(event.data.conversationId!, {
+          badges: [{
+            text: "Chat Spam Alert",
+            badgeVisibility: "BUSINESS",
+            iconUrl: "https://static.wixstatic.com/shapes/bec40d_8dc570e465714337a93f5f9c691c209b.svg"
+          }],
+          content: {
+            previewText: message,
+            "basic": {
+              "items": [{
+                "text": message
+              }]
+            }
+          },
+          sourceChannel: "CHAT",
+          visibility: "BUSINESS",
+          direction: "PARTICIPANT_TO_BUSINESS",
+        }, {
+          sendAs: "CALLER",
+          sendNotifications: false,
+        });
+        console.log(`Successfully sent message to conversation ${event.data.conversationId}. Result:`, result);
+      } catch (sendError) {
+        console.error(`Error sending message to conversation ${event.data.conversationId}:`, sendError);
+        throw sendError; // Re-throw to be caught by outer try-catch
+      }
     } else {
       console.log(`Message content does not include Wix: ${messageContent}`);
     }
@@ -134,7 +143,7 @@ export default async function handler(req: Request): Promise<Response> {
     const body = await req.text();
 
     // Process the webhook using the Wix SDK
-    client.webhooks.process(body);
+    await client.webhooks.process(body);
 
     return new Response('OK', { status: 200 });
   } catch (err) {

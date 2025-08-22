@@ -19,6 +19,7 @@
     "@wix/members": "^1.0.320",
     "@wix/sdk": "^1.15.27",
     "@wix/wix-ui-icons-common": "^3.87.0",
+    "openai": "^4.67.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-gtm-module": "^2.0.11",

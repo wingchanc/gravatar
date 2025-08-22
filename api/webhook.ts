@@ -3,6 +3,7 @@ import { members } from "@wix/members";
 import { appInstances } from "@wix/app-management";
 import { messages } from '@wix/inbox';
 import { Redis } from '@upstash/redis';
+import OpenAI from 'openai';
 
 export const config = {
   runtime: 'edge',
@@ -18,6 +19,11 @@ fGxLQVJkDdnJd+rf6ADmmZs88XDFioo38hstCedTV93AlHE2Ix0Y2I2nZyeMtu5O
 VQIDAQAB
 -----END PUBLIC KEY-----`;
 const APP_ID = "1b7fc338-869b-4f77-92bb-9de00fe0bb6b";
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+});
 
 // Redis client for checking toggle state
 const redis = new Redis({
@@ -49,6 +55,93 @@ async function isBlockingEnabledForInstance(instanceId: string): Promise<boolean
     // Default to false on error (fail safe)
     return false;
   }
+}
+
+// Enhanced spam detection using OpenAI Moderation API
+async function checkSpamWithOpenAI(content: string): Promise<{ isSpam: boolean; reason?: string; confidence?: number }> {
+  try {
+    if (!content || content.trim().length === 0) {
+      return { isSpam: false };
+    }
+
+    console.log(`Checking content with OpenAI: "${content}"`);
+    
+    const moderation = await openai.moderations.create({
+      input: content,
+    });
+    
+    const result = moderation.results[0];
+    console.log(`OpenAI moderation result:`, JSON.stringify(result, null, 2));
+    
+    // Check various harmful content indicators
+    const isGenerallyFlagged = result.flagged;
+    const isHarassment = result.categories.harassment;
+    const isHarassmentThreatening = result.categories['harassment/threatening'];
+    const isHate = result.categories.hate;
+    const isHateThreatening = result.categories['hate/threatening'];
+    const isIllicit = result.categories.illicit;
+    const isViolence = result.categories.violence;
+    
+    // Check confidence scores (adjust thresholds as needed)
+    const harassmentScore = result.category_scores.harassment;
+    const harassmentThreateningScore = result.category_scores['harassment/threatening'];
+    const hateScore = result.category_scores.hate;
+    const illicitScore = result.category_scores.illicit;
+    const violenceScore = result.category_scores.violence;
+    
+    // Define thresholds for spam/harmful content detection
+    const HARASSMENT_THRESHOLD = 0.7;  // Adjustable threshold
+    const HATE_THRESHOLD = 0.6;
+    const ILLICIT_THRESHOLD = 0.5;
+    const VIOLENCE_THRESHOLD = 0.8;
+    
+    const isHighHarassmentScore = harassmentScore > HARASSMENT_THRESHOLD;
+    const isHighHateScore = hateScore > HATE_THRESHOLD;
+    const isHighIllicitScore = illicitScore > ILLICIT_THRESHOLD;
+    const isHighViolenceScore = violenceScore > VIOLENCE_THRESHOLD;
+    
+    const isSpam = isGenerallyFlagged || isHarassment || isHarassmentThreatening || 
+                   isHate || isHateThreatening || isIllicit || isViolence ||
+                   isHighHarassmentScore || isHighHateScore || isHighIllicitScore || isHighViolenceScore;
+    
+    let reason = '';
+    if (isSpam) {
+      const reasons: string[] = [];
+      if (isHarassment) reasons.push('harassment');
+      if (isHarassmentThreatening) reasons.push('harassment/threatening');
+      if (isHate) reasons.push('hate speech');
+      if (isHateThreatening) reasons.push('hate/threatening');
+      if (isIllicit) reasons.push('illicit content');
+      if (isViolence) reasons.push('violence');
+      if (isHighHarassmentScore) reasons.push(`high harassment score (${harassmentScore.toFixed(2)})`);
+      if (isHighHateScore) reasons.push(`high hate score (${hateScore.toFixed(2)})`);
+      if (isHighIllicitScore) reasons.push(`high illicit score (${illicitScore.toFixed(2)})`);
+      if (isHighViolenceScore) reasons.push(`high violence score (${violenceScore.toFixed(2)})`);
+      reason = reasons.join(', ');
+    }
+    
+    const maxConfidence = Math.max(harassmentScore, harassmentThreateningScore, hateScore, illicitScore, violenceScore);
+    
+    return { 
+      isSpam, 
+      reason,
+      confidence: maxConfidence
+    };
+  } catch (error) {
+    console.error('OpenAI moderation error:', error);
+    // Fallback to simple keyword check if OpenAI fails
+    const containsWix = content.toLowerCase().includes("wix");
+    return { 
+      isSpam: containsWix, 
+      reason: containsWix ? 'fallback: contains "wix"' : undefined 
+    };
+  }
+}
+
+// Legacy spam check (as fallback)
+function legacySpamCheck(content: string): boolean {
+  if (!content) return false;
+  return content.toLowerCase().includes("wix");
 }
 
 const client = createClient({
@@ -91,14 +184,39 @@ client.messages.onMessageSentToBusiness(async (event) => {
     }
 
     console.log(`Message content: ${messageContent}`);
-    console.log(`Checking if message contains "wix": ${messageContent?.toLowerCase().includes("wix")}`);
-
-    if (messageContent?.toLowerCase().includes("wix")) {
-      console.log(`Message contains "wix" - sending spam alert...`);
-      const message = "🚨 Scammer likes to pretend to be Wix Support or Wix Sales to get your money. Don't fall for it!"
+    
+    // PRIORITY 1: Check for Wix keyword first (highest priority)
+    const legacySpamResult = legacySpamCheck(messageContent || '');
+    console.log(`Legacy spam check (contains "wix"): ${legacySpamResult}`);
+    
+    let isSpam = false;
+    let alertMessage = "";
+    let spamReason = "";
+    
+    if (legacySpamResult) {
+      // Wix keyword detected - highest priority, skip OpenAI check
+      isSpam = true;
+      alertMessage = "🚨 Scammer likes to pretend to be Wix Support or Wix Sales to get your money. Don't fall for it!";
+      spamReason = "Wix keyword detected";
+      console.log(`Message flagged as spam: ${spamReason}`);
+    } else {
+      // PRIORITY 2: Only run OpenAI check if Wix keyword not found
+      console.log(`No Wix keyword found, running OpenAI moderation check...`);
+      const spamCheck = await checkSpamWithOpenAI(messageContent || '');
+      console.log(`OpenAI spam check result:`, spamCheck);
+      
+      if (spamCheck.isSpam) {
+        isSpam = true;
+        alertMessage = `🚨 Spam detected: ${spamCheck.reason}. Please review this message carefully.`;
+        spamReason = `OpenAI: ${spamCheck.reason}`;
+        console.log(`Message flagged as spam: ${spamReason}`);
+      }
+    }
+    
+    if (isSpam) {
       
       try {
-        console.log(`Attempting to send message to conversation ${event.data.conversationId}`);
+        console.log(`Attempting to send spam alert to conversation ${event.data.conversationId}`);
         const result = await elevatedClient.messages.sendMessage(event.data.conversationId!, {
           badges: [{
             text: "Chat Spam Alert",
@@ -106,10 +224,10 @@ client.messages.onMessageSentToBusiness(async (event) => {
             iconUrl: "https://static.wixstatic.com/shapes/bec40d_8dc570e465714337a93f5f9c691c209b.svg"
           }],
           content: {
-            previewText: message,
+            previewText: alertMessage,
             "basic": {
               "items": [{
-                "text": message
+                "text": alertMessage
               }]
             }
           },
@@ -120,13 +238,13 @@ client.messages.onMessageSentToBusiness(async (event) => {
           sendAs: "CALLER",
           sendNotifications: false,
         });
-        console.log(`Successfully sent message to conversation ${event.data.conversationId}. Result:`, result);
+        console.log(`Successfully sent spam alert to conversation ${event.data.conversationId}. Result:`, result);
       } catch (sendError) {
-        console.error(`Error sending message to conversation ${event.data.conversationId}:`, sendError);
-        throw sendError; // Re-throw to be caught by outer try-catch
+        console.error(`Error sending spam alert to conversation ${event.data.conversationId}:`, sendError);
+        throw sendError;
       }
     } else {
-      console.log(`Message content does not include Wix: ${messageContent}`);
+      console.log(`Message passed all spam checks: ${messageContent}`);
     }
   } catch (error) {
     console.error(`Error processing message sent to business event:`, error);

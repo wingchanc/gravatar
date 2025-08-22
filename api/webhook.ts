@@ -90,6 +90,8 @@ client.messages.onMessageSentToBusiness(async (event) => {
       messageContent = event.data.message?.content?.form?.fields?.map((field: any) => field.value).join("\n")
     }
 
+    console.log(`Message content: ${messageContent}`);
+
     if (messageContent?.toLowerCase().includes("wix")) {
       const message = "🚨 Scammer likes to pretend to be Wix Support or Wix Sales to get your money. Don't fall for it!"
       await elevatedClient.messages.sendMessage(event.data.conversationId!, {

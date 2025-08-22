@@ -1,6 +1,7 @@
 import { AppStrategy, createClient } from "@wix/sdk";
 import { members } from "@wix/members";
 import { appInstances } from "@wix/app-management";
+import { messages } from '@wix/inbox';
 import { Redis } from '@upstash/redis';
 
 export const config = {
@@ -32,7 +33,7 @@ async function isBlockingEnabledForInstance(instanceId: string): Promise<boolean
     const key = `${KEY_PREFIX}${instanceId}`;
     const value = await redis.get(key);
     console.log(`Toggle state check for instance ${instanceId}: ${value} (type: ${typeof value})`);
-    
+
     // Handle different possible return types from Redis
     if (value === 'true' || value === true) {
       return true;
@@ -55,12 +56,12 @@ const client = createClient({
     appId: APP_ID,
     publicKey: PUBLIC_KEY,
   }),
-  modules: { members, appInstances },
+  modules: { messages, appInstances },
 });
 
 // Set up the member created event handler
-client.members.onMemberCreated(async (event) => {
-  console.log(`onMemberCreated invoked with data:`, event);
+client.messages.onMessageSentToBusiness(async (event) => {
+  console.log(`onMessageSentToBusiness invoked with data:`, event);
   console.log(`App instance ID:`, event.metadata.instanceId);
   const elevatedClient = createClient({
     auth: AppStrategy({
@@ -69,73 +70,24 @@ client.members.onMemberCreated(async (event) => {
       appSecret: "bb5ac073-63a9-4178-9ab0-fc36c049fc0a",
       instanceId: event.metadata.instanceId!,
     }),
-    modules: { members, appInstances },
+    modules: { messages, appInstances },
   });
   try {
-    // Extract member information from the event
-    const member = event.entity;
-    const email = member?.loginEmail || member?.contact?.emails?.[0];
-    
-    if (email) {
-      console.log(`New member created with email: ${email}`);
-      
-      // First check if fake email blocking is enabled for this instance
-      const isBlockingEnabled = await isBlockingEnabledForInstance(event.metadata.instanceId!);
-      
-      if (!isBlockingEnabled) {
-        console.log(`🔓 Fake email blocking is disabled for instance ${event.metadata.instanceId}. Skipping email check.`);
-        return; // Exit early if blocking is disabled
-      }
-      
-      console.log(`🔒 Fake email blocking is enabled for instance ${event.metadata.instanceId}. Proceeding with email check.`);
-      
-      // Check if email is fake using the isfakemail.com API
-      const emailCheckResult = await checkEmailWithIsFakeMail(email);
-      
-      if (emailCheckResult.isFake) {
-        console.log(`🚨 Detected fake email: ${email} (domain: ${emailCheckResult.domain}) for member ${event.metadata.entityId}`);
-        
-        // Implement actions for fake emails:
-        
-        try {
-          // 1. Block the member immediately
-          await elevatedClient.members.blockMember(
-            event.metadata.entityId!
-          );
-          console.log(`🚫 Successfully blocked member ${event.metadata.entityId}`);
-          
-          // 2. Get admin email from app instance and send alert
-          try {
-            const appInstance = await elevatedClient.appInstances.getAppInstance();
-            const adminEmail = appInstance.site?.ownerInfo?.email;
-            
-            const emailSent = await sendFakeMemberAlert(email, adminEmail!);
-            
-            if (emailSent) {
-              console.log(`📧 Admin alert email sent to ${adminEmail} for fake member: ${email}`);
-            } else {
-              console.warn(`⚠️ Failed to send admin alert email for: ${email}`);
-            }
-          } catch (emailError) {
-            console.error(`❌ Error getting admin email or sending alert:`, emailError);
-          }
-          
-        } catch (blockError) {
-          console.error(`❌ Error blocking member ${event.metadata.entityId}:`, blockError);
-        }
-        
-      } else {
-        console.log(`✅ Email verified as legitimate: ${email}`);
-      }
-      
-      if (emailCheckResult.error) {
-        console.warn(`⚠️ Email check service error: ${emailCheckResult.error}`);
-      }
+    const messageContent = event.data.message?.content?.previewText
+
+    if (messageContent?.toLowerCase().includes("wix")) {
+      await elevatedClient.messages.sendMessage(event.data.conversationId!, {
+        content: {
+          previewText: "🚨 Scammer likes to pretend to be Wix Support or Wix Sales to get your money. Don't fall for it! - flagged by Chat Spam Alert"
+        },
+        visibility: "BUSINESS"
+      })
+      console.log(`Sent message to conversation ${event.data.conversationId}`);
     } else {
-      console.log('No email found in member data');
+      console.log(`Message content does not include Wix: ${messageContent}`);
     }
   } catch (error) {
-    console.error('Error processing member created event:', error);
+    console.error(`Error processing message sent to business event:`, error);
   }
 });
 
@@ -147,18 +99,18 @@ export default async function handler(req: Request): Promise<Response> {
   try {
     // Get the raw body as text for webhook processing
     const body = await req.text();
-    
+
     // Process the webhook using the Wix SDK
     await client.webhooks.process(body);
-    
+
     return new Response('OK', { status: 200 });
   } catch (err) {
     console.error('Webhook processing error:', err);
-    
+
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: `Webhook error: ${errorMessage}` }), 
-      { 
+      JSON.stringify({ error: `Webhook error: ${errorMessage}` }),
+      {
         status: 500,
         headers: { 'content-type': 'application/json' }
       }

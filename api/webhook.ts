@@ -73,6 +73,12 @@ client.messages.onMessageSentToBusiness(async (event) => {
     modules: { messages, appInstances },
   });
   try {
+    if (event.data.message?.direction === "BUSINESS_TO_PARTICIPANT" || 
+      event.data.message?.visibility === "BUSINESS"
+    ) {
+      return;
+    }
+
     let messageContent = event.data.message?.content?.previewText
 
     if (event.data.message?.content?.basic?.items) {
@@ -101,7 +107,8 @@ client.messages.onMessageSentToBusiness(async (event) => {
         },
         sourceChannel: "CHAT",
         visibility: "BUSINESS",
-        direction: "PARTICIPANT_TO_BUSINESS"
+        direction: "PARTICIPANT_TO_BUSINESS",
+        silent: true
       }, {
         sendAs: "CALLER",
         sendNotifications: false,

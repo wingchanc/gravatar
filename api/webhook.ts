@@ -65,14 +65,14 @@ async function checkSpamWithOpenAI(content: string): Promise<{ isSpam: boolean; 
     }
 
     console.log(`Checking content with OpenAI: "${content}"`);
-    
+
     const moderation = await openai.moderations.create({
       input: content,
     });
-    
+
     const result = moderation.results[0];
     console.log(`OpenAI moderation result:`, JSON.stringify(result, null, 2));
-    
+
     // Check various harmful content indicators
     const isGenerallyFlagged = result.flagged;
     const isHarassment = result.categories.harassment;
@@ -81,29 +81,29 @@ async function checkSpamWithOpenAI(content: string): Promise<{ isSpam: boolean; 
     const isHateThreatening = result.categories['hate/threatening'];
     const isIllicit = result.categories.illicit;
     const isViolence = result.categories.violence;
-    
+
     // Check confidence scores (adjust thresholds as needed)
     const harassmentScore = result.category_scores.harassment;
     const harassmentThreateningScore = result.category_scores['harassment/threatening'];
     const hateScore = result.category_scores.hate;
     const illicitScore = result.category_scores.illicit;
     const violenceScore = result.category_scores.violence;
-    
+
     // Define thresholds for spam/harmful content detection
     const HARASSMENT_THRESHOLD = 0.7;  // Adjustable threshold
     const HATE_THRESHOLD = 0.6;
     const ILLICIT_THRESHOLD = 0.5;
     const VIOLENCE_THRESHOLD = 0.8;
-    
+
     const isHighHarassmentScore = harassmentScore > HARASSMENT_THRESHOLD;
     const isHighHateScore = hateScore > HATE_THRESHOLD;
     const isHighIllicitScore = illicitScore > ILLICIT_THRESHOLD;
     const isHighViolenceScore = violenceScore > VIOLENCE_THRESHOLD;
-    
-    const isSpam = isGenerallyFlagged || isHarassment || isHarassmentThreatening || 
-                   isHate || isHateThreatening || isIllicit || isViolence ||
-                   isHighHarassmentScore || isHighHateScore || isHighIllicitScore || isHighViolenceScore;
-    
+
+    const isSpam = isGenerallyFlagged || isHarassment || isHarassmentThreatening ||
+      isHate || isHateThreatening || isIllicit || isViolence ||
+      isHighHarassmentScore || isHighHateScore || isHighIllicitScore || isHighViolenceScore;
+
     let reason = '';
     if (isSpam) {
       const reasons: string[] = [];
@@ -119,11 +119,11 @@ async function checkSpamWithOpenAI(content: string): Promise<{ isSpam: boolean; 
       if (isHighViolenceScore) reasons.push(`high violence score (${violenceScore.toFixed(2)})`);
       reason = reasons.join(', ');
     }
-    
+
     const maxConfidence = Math.max(harassmentScore, harassmentThreateningScore, hateScore, illicitScore, violenceScore);
-    
-    return { 
-      isSpam, 
+
+    return {
+      isSpam,
       reason,
       confidence: maxConfidence
     };
@@ -131,9 +131,9 @@ async function checkSpamWithOpenAI(content: string): Promise<{ isSpam: boolean; 
     console.error('OpenAI moderation error:', error);
     // Fallback to simple keyword check if OpenAI fails
     const containsWix = content.toLowerCase().includes("wix");
-    return { 
-      isSpam: containsWix, 
-      reason: containsWix ? 'fallback: contains "wix"' : undefined 
+    return {
+      isSpam: containsWix,
+      reason: containsWix ? 'fallback: contains "wix"' : undefined
     };
   }
 }
@@ -166,7 +166,7 @@ client.messages.onMessageSentToBusiness(async (event) => {
     modules: { messages, appInstances },
   });
   try {
-    if (event.data.message?.direction === "BUSINESS_TO_PARTICIPANT" || 
+    if (event.data.message?.direction === "BUSINESS_TO_PARTICIPANT" ||
       event.data.message?.visibility === "BUSINESS"
     ) {
       console.log(`Message is from business to participant or is not visible to business, skipping...`);
@@ -184,15 +184,15 @@ client.messages.onMessageSentToBusiness(async (event) => {
     }
 
     console.log(`Message content: ${messageContent}`);
-    
+
     // PRIORITY 1: Check for Wix keyword first (highest priority)
     const legacySpamResult = legacySpamCheck(messageContent || '');
     console.log(`Legacy spam check (contains "wix"): ${legacySpamResult}`);
-    
+
     let isSpam = false;
     let alertMessage = "";
     let spamReason = "";
-    
+
     if (legacySpamResult) {
       // Wix keyword detected - highest priority, skip OpenAI check
       isSpam = true;
@@ -204,7 +204,7 @@ client.messages.onMessageSentToBusiness(async (event) => {
       console.log(`No Wix keyword found, running OpenAI moderation check...`);
       const spamCheck = await checkSpamWithOpenAI(messageContent || '');
       console.log(`OpenAI spam check result:`, spamCheck);
-      
+
       if (spamCheck.isSpam) {
         isSpam = true;
         alertMessage = `🚨 Spam detected: ${spamCheck.reason}. Please review this message carefully.`;
@@ -212,9 +212,9 @@ client.messages.onMessageSentToBusiness(async (event) => {
         console.log(`Message flagged as spam: ${spamReason}`);
       }
     }
-    
+
     if (isSpam) {
-      
+
       try {
         console.log(`Attempting to send spam alert to conversation ${event.data.conversationId}`);
         const result = await elevatedClient.messages.sendMessage(event.data.conversationId!, {
@@ -260,12 +260,19 @@ export default async function handler(req: Request): Promise<Response> {
     // Get the raw body as text for webhook processing
     const body = await req.text();
 
-    // Process the webhook using the Wix SDK
-    await client.webhooks.process(body);
+    // Return 200 OK immediately, then process asynchronously
+    // This ensures webhook delivery confirmation is sent back quickly
+    const response = new Response('OK', { status: 200 });
 
-    return new Response('OK', { status: 200 });
+    // Process the webhook asynchronously without awaiting
+    // This allows the response to be sent immediately while processing continues in background
+    client.webhooks.process(body).catch((err) => {
+      console.error('Async webhook processing error:', err);
+    });
+
+    return response;
   } catch (err) {
-    console.error('Webhook processing error:', err);
+    console.error('Webhook handler error:', err);
 
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     return new Response(

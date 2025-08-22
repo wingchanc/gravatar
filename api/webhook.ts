@@ -76,12 +76,27 @@ client.messages.onMessageSentToBusiness(async (event) => {
     const messageContent = event.data.message?.content?.previewText
 
     if (messageContent?.toLowerCase().includes("wix")) {
+      const message = "🚨 Scammer likes to pretend to be Wix Support or Wix Sales to get your money. Don't fall for it! - flagged by Chat Spam Alert"
       await elevatedClient.messages.sendMessage(event.data.conversationId!, {
+        badges: [{
+          text: "AI Answer",
+          badgeVisibility: "BUSINESS",
+          iconUrl: "https://static.wixstatic.com/shapes/bec40d_0199053d8b814ea890eaeff1eebbf400.svg"
+        }],
         content: {
-          previewText: "🚨 Scammer likes to pretend to be Wix Support or Wix Sales to get your money. Don't fall for it! - flagged by Chat Spam Alert"
+          previewText: message,
+          "basic": {
+            "items": [{
+              "text": message
+            }]
+          }
         },
+        sourceChannel: "CHAT",
         visibility: "BUSINESS",
         direction: "BUSINESS_TO_PARTICIPANT"
+      }, {
+        sendAs: "CALLER",
+        sendNotifications: false,
       })
       console.log(`Sent message to conversation ${event.data.conversationId}`);
     } else {

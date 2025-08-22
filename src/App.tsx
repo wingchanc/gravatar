@@ -22,7 +22,7 @@ import TagManager from "react-gtm-module";
 import { embeddedScripts, appInstances } from "@wix/app-management";
 
 // KV Storage Toggle Component
-// This component manages the state of the "Block Fake Email Member?" toggle using KV storage
+// This component manages the state of the "Get Alert on Spam Messages?" toggle using KV storage
 const KVStorageToggle = () => {
   const [isEnabled, setIsEnabled] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -105,7 +105,7 @@ const KVStorageToggle = () => {
   return (
     <Box direction="vertical" gap="SP2">
       <FormField
-        label="Block Fake Email Member?"
+        label="Get Alert on Spam Messages?"
         labelPlacement="left"
         stretchContent={false}
       >
@@ -122,8 +122,8 @@ const KVStorageToggle = () => {
       )}
       <Text size="small" secondary>
         {isEnabled 
-          ? "Fake email members are currently being blocked on your site."
-          : "Fake email members are currently not being blocked."
+          ? "You will receive an alert when a spam message is detected."
+          : "You will not receive an alert when a spam message is detected."
         }
       </Text>
     </Box>
@@ -150,7 +150,7 @@ function App() {
   const [message, setMessage] = React.useState({
     _id: "chat-spam-alert",
     title: "Chat Spam Alert",
-    description: "Block spam messages.",
+    description: "Block spam messages like sales, marketing, and unsolicited messages.",
     image: null,
     redirectUrl: "https://www.wix.com"
   } as any);

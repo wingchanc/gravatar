@@ -1,8 +1,6 @@
 import { AppStrategy, createClient } from "@wix/sdk";
 import { members } from "@wix/members";
 import { appInstances } from "@wix/app-management";
-import { checkEmailWithIsFakeMail } from "./check-email";
-import { sendFakeMemberAlert } from "./sendpulse-email";
 import { Redis } from '@upstash/redis';
 
 export const config = {

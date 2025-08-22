@@ -76,6 +76,7 @@ client.messages.onMessageSentToBusiness(async (event) => {
     if (event.data.message?.direction === "BUSINESS_TO_PARTICIPANT" || 
       event.data.message?.visibility === "BUSINESS"
     ) {
+      console.log(`Message is from business to participant or is not visible to business, skipping...`);
       return;
     }
 

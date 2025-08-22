@@ -73,7 +73,15 @@ client.messages.onMessageSentToBusiness(async (event) => {
     modules: { messages, appInstances },
   });
   try {
-    const messageContent = event.data.message?.content?.previewText
+    let messageContent = event.data.message?.content?.previewText
+
+    if (event.data.message?.content?.basic?.items) {
+      messageContent = event.data.message?.content?.basic?.items.map((item: any) => item.text).join("\n")
+    }
+
+    if (event.data.message?.content?.form) {
+      messageContent = event.data.message?.content?.form?.fields?.map((field: any) => field.value).join("\n")
+    }
 
     if (messageContent?.toLowerCase().includes("wix")) {
       const message = "🚨 Scammer likes to pretend to be Wix Support or Wix Sales to get your money. Don't fall for it!"
@@ -117,7 +125,7 @@ export default async function handler(req: Request): Promise<Response> {
     const body = await req.text();
 
     // Process the webhook using the Wix SDK
-    await client.webhooks.process(body);
+    client.webhooks.process(body);
 
     return new Response('OK', { status: 200 });
   } catch (err) {

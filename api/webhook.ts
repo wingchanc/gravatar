@@ -80,7 +80,8 @@ client.messages.onMessageSentToBusiness(async (event) => {
         content: {
           previewText: "🚨 Scammer likes to pretend to be Wix Support or Wix Sales to get your money. Don't fall for it! - flagged by Chat Spam Alert"
         },
-        visibility: "BUSINESS"
+        visibility: "BUSINESS",
+        direction: "BUSINESS_TO_PARTICIPANT"
       })
       console.log(`Sent message to conversation ${event.data.conversationId}`);
     } else {

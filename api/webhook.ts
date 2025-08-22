@@ -111,7 +111,6 @@ client.messages.onMessageSentToBusiness(async (event) => {
         sourceChannel: "CHAT",
         visibility: "BUSINESS",
         direction: "PARTICIPANT_TO_BUSINESS",
-        silent: true
       }, {
         sendAs: "CALLER",
         sendNotifications: false,

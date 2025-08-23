@@ -259,42 +259,43 @@ client.messages.onMessageSentToBusiness(async (event) => {
     
     console.log(`Starting spam detection process for message: "${messageContent}"`);
 
-    if (legacySpamResult) {
-      // Wix keyword detected - highest priority, skip OpenAI check
-      isSpam = true;
-      alertMessage = "🚨 Scammer likes to pretend to be Wix Support or Wix Sales to get your money. Don't fall for it!";
-      spamReason = "Wix keyword detected";
-      console.log(`Message flagged as spam: ${spamReason}`);
-    } else {
-      // PRIORITY 2: Only run OpenAI check if Wix keyword not found
-      console.log(`No Wix keyword found, running OpenAI moderation check...`);
-      
-      try {
-        const spamCheck = await checkSpamWithOpenAI(messageContent || '');
-        console.log(`OpenAI spam check result:`, spamCheck);
+      if (legacySpamResult) {
+        // Wix keyword detected - highest priority, skip OpenAI check
+        isSpam = true;
+        alertMessage = "🚨 Scammer likes to pretend to be Wix Support or Wix Sales to get your money. Don't fall for it!";
+        spamReason = "Wix keyword detected";
+        console.log(`Message flagged as spam: ${spamReason}`);
+      } else {
+        // PRIORITY 2: Only run OpenAI check if Wix keyword not found
+        console.log(`No Wix keyword found, running OpenAI moderation check...`);
+        
+        try {
+          console.log(`Starting OpenAI moderation check...`);
+          const spamCheck = await checkSpamWithOpenAI(messageContent || '');
+          console.log(`OpenAI spam check result:`, spamCheck);
 
-        if (spamCheck.isSpam) {
-          isSpam = true;
-          alertMessage = `🚨 Spam detected: ${spamCheck.reason}. Please review this message carefully.`;
-          spamReason = `OpenAI: ${spamCheck.reason}`;
-          console.log(`Message flagged as spam: ${spamReason}`);
-        }
-      } catch (openAIError) {
-        console.error('OpenAI moderation check failed, falling back to basic content analysis:', openAIError);
-        
-        // Fallback: Check for obvious problematic content patterns
-        const lowerContent = (messageContent || '').toLowerCase();
-        const hasProfanity = /\b(fuck|shit|damn|bitch|asshole|jerk|wtf)\b/.test(lowerContent);
-        const hasAggressiveLanguage = /\b(your solution doesn't work|can't do|how much of a jerk|what the fuck|paid you)\b/.test(lowerContent);
-        
-        if (hasProfanity || hasAggressiveLanguage) {
-          isSpam = true;
-          alertMessage = "🚨 Potentially problematic message detected. Please review this message carefully.";
-          spamReason = "Fallback: aggressive language or profanity detected";
-          console.log(`Message flagged as spam using fallback: ${spamReason}`);
+          if (spamCheck.isSpam) {
+            isSpam = true;
+            alertMessage = `🚨 Spam detected: ${spamCheck.reason}. Please review this message carefully.`;
+            spamReason = `OpenAI: ${spamCheck.reason}`;
+            console.log(`Message flagged as spam: ${spamReason}`);
+          }
+        } catch (openAIError) {
+          console.error('OpenAI moderation check failed, falling back to basic content analysis:', openAIError);
+          
+          // Fallback: Check for obvious problematic content patterns
+          const lowerContent = (messageContent || '').toLowerCase();
+          const hasProfanity = /\b(fuck|shit|damn|bitch|asshole|jerk|wtf)\b/.test(lowerContent);
+          const hasAggressiveLanguage = /\b(your solution doesn't work|can't do|how much of a jerk|what the fuck|paid you)\b/.test(lowerContent);
+          
+          if (hasProfanity || hasAggressiveLanguage) {
+            isSpam = true;
+            alertMessage = "🚨 Potentially problematic message detected. Please review this message carefully.";
+            spamReason = "Fallback: aggressive language or profanity detected";
+            console.log(`Message flagged as spam using fallback: ${spamReason}`);
+          }
         }
       }
-    }
 
     // Generate suggested response for agents if spam is detected
     let suggestedResponse = "";
@@ -312,7 +313,7 @@ client.messages.onMessageSentToBusiness(async (event) => {
     if (isSpam) {
 
       try {
-        console.log(`Attempting to send spam alert to conversation ${event.data.conversationId}`);
+        console.log(`Starting to send spam alert to conversation ${event.data.conversationId}`);
         const result = await elevatedClient.messages.sendMessage(event.data.conversationId!, {
           badges: [{
             text: "Chat Spam Alert",
@@ -362,17 +363,18 @@ export default async function handler(req: Request): Promise<Response> {
     // Get the raw body as text for webhook processing
     const body = await req.text();
 
-    // Return 200 OK immediately, then process asynchronously
-    // This ensures webhook delivery confirmation is sent back quickly
-    const response = new Response('OK', { status: 200 });
+    // Process the webhook synchronously before sending response
+    // This ensures Vercel doesn't terminate the function before processing completes
+    try {
+      await client.webhooks.process(body);
+      console.log('Webhook processed successfully');
+    } catch (webhookError) {
+      console.error('Webhook processing error:', webhookError);
+      // Continue execution even if webhook processing fails
+    }
 
-    // Process the webhook asynchronously without awaiting
-    // This allows the response to be sent immediately while processing continues in background
-    client.webhooks.process(body).catch((err) => {
-      console.error('Async webhook processing error:', err);
-    });
-
-    return response;
+    // Return 200 OK after processing is complete
+    return new Response('OK', { status: 200 });
   } catch (err) {
     console.error('Webhook handler error:', err);
 

@@ -138,6 +138,49 @@ async function checkSpamWithOpenAI(content: string): Promise<{ isSpam: boolean; 
   }
 }
 
+// Generate suggested response for agents using OpenAI
+async function generateSuggestedResponse(content: string, spamReason: string): Promise<string> {
+  try {
+    const prompt = `You are a helpful customer service agent. A customer has sent a message that was flagged as potential spam due to: ${spamReason}.
+
+The customer's message was: "${content}"
+
+Please provide a professional, helpful, and courteous response that:
+1. Acknowledges their message
+2. Politely explains that you need to verify their identity or request
+3. Asks for additional information or clarification if needed
+4. Maintains a professional and helpful tone
+5. Is concise (2-3 sentences maximum)
+
+Your response should be helpful while being cautious about potential spam.`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "system",
+          content: "You are a professional customer service agent who helps customers while being cautious about spam."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      max_tokens: 150,
+      temperature: 0.7,
+    });
+
+    const suggestedResponse = completion.choices[0]?.message?.content?.trim();
+    console.log(`Generated suggested response: ${suggestedResponse}`);
+    
+    return suggestedResponse || "Thank you for your message. I'd be happy to help you. Could you please provide more details about your request so I can assist you better?";
+  } catch (error) {
+    console.error('Error generating suggested response:', error);
+    // Fallback response if OpenAI fails
+    return "Thank you for your message. I'd be happy to help you. Could you please provide more details about your request so I can assist you better?";
+  }
+}
+
 // Legacy spam check (as fallback)
 function legacySpamCheck(content: string): boolean {
   if (!content) return false;
@@ -213,6 +256,18 @@ client.messages.onMessageSentToBusiness(async (event) => {
       }
     }
 
+    // Generate suggested response for agents if spam is detected
+    let suggestedResponse = "";
+    if (isSpam) {
+      try {
+        suggestedResponse = await generateSuggestedResponse(messageContent || '', spamReason);
+        console.log(`Generated suggested response for agent: ${suggestedResponse}`);
+      } catch (error) {
+        console.error('Error generating suggested response:', error);
+        suggestedResponse = "Thank you for your message. I'd be happy to help you. Could you please provide more details about your request so I can assist you better?";
+      }
+    }
+
     if (isSpam) {
 
       try {
@@ -224,10 +279,10 @@ client.messages.onMessageSentToBusiness(async (event) => {
             iconUrl: "https://static.wixstatic.com/shapes/bec40d_8dc570e465714337a93f5f9c691c209b.svg"
           }],
           content: {
-            previewText: alertMessage,
+            previewText: `${alertMessage}\n\n💡 Suggested Response for Agent:\n${suggestedResponse}`,
             "basic": {
               "items": [{
-                "text": alertMessage
+                "text": `${alertMessage}\n\n💡 Suggested Response for Agent:\n${suggestedResponse}`
               }]
             }
           },

@@ -154,13 +154,13 @@ async function generateSuggestedResponse(content: string, spamReason: string): P
 The customer's message was: "${content}"
 
 Please provide a professional, helpful, and courteous response that:
-1. Acknowledges their message
-2. Politely explains that you need to verify their identity or request
-3. Asks for additional information or clarification if needed
+1. Acknowledges their message briefly
+2. Politely explains that you need to verify their request
+3. Asks for additional information or clarification
 4. Maintains a professional and helpful tone
-5. Is concise (2-3 sentences maximum)
+5. Is VERY concise (1-2 short sentences maximum, aim for under 100 characters)
 
-Your response should be helpful while being cautious about potential spam.`;
+Your response should be helpful while being cautious about potential spam. Keep it brief and professional.`;
 
     // Add timeout to prevent hanging
     const timeoutPromise = new Promise((_, reject) => {
@@ -172,27 +172,32 @@ Your response should be helpful while being cautious about potential spam.`;
       messages: [
         {
           role: "system",
-          content: "You are a professional customer service agent who helps customers while being cautious about spam."
+          content: "You are a professional customer service agent who helps customers while being cautious about spam. Keep responses brief and under 100 characters."
         },
         {
           role: "user",
           content: prompt
         }
       ],
-      max_tokens: 150,
+      max_tokens: 80,
       temperature: 0.7,
     });
 
     const completion = await Promise.race([completionPromise, timeoutPromise]) as any;
 
-    const suggestedResponse = completion.choices[0]?.message?.content?.trim();
+    let suggestedResponse = completion.choices[0]?.message?.content?.trim();
     console.log(`Generated suggested response: ${suggestedResponse}`);
     
-    return suggestedResponse || "Thank you for your message. I'd be happy to help you. Could you please provide more details about your request so I can assist you better?";
+    // If no response generated or it's too long, use a very short fallback
+    if (!suggestedResponse || suggestedResponse.length > 100) {
+      suggestedResponse = "Thank you for your message. Please provide more details so I can assist you better.";
+    }
+    
+    return suggestedResponse;
   } catch (error) {
     console.error('Error generating suggested response:', error);
     // Fallback response if OpenAI fails
-    return "Thank you for your message. I'd be happy to help you. Could you please provide more details about your request so I can assist you better?";
+    return "Thank you for your message. Please provide more details so I can assist you better.";
   }
 }
 
@@ -265,6 +270,7 @@ client.messages.onMessageSentToBusiness(async (event) => {
         alertMessage = "🚨 Scammer likes to pretend to be Wix Support or Wix Sales to get your money. Don't fall for it!";
         spamReason = "Wix keyword detected";
         console.log(`Message flagged as spam: ${spamReason}`);
+        console.log(`Alert message length: ${alertMessage.length} characters`);
       } else {
         // PRIORITY 2: Only run OpenAI check if Wix keyword not found
         console.log(`No Wix keyword found, running OpenAI moderation check...`);
@@ -279,6 +285,7 @@ client.messages.onMessageSentToBusiness(async (event) => {
             alertMessage = `🚨 Spam detected: ${spamCheck.reason}. Please review this message carefully.`;
             spamReason = `OpenAI: ${spamCheck.reason}`;
             console.log(`Message flagged as spam: ${spamReason}`);
+            console.log(`Alert message length: ${alertMessage.length} characters`);
           }
         } catch (openAIError) {
           console.error('OpenAI moderation check failed, falling back to basic content analysis:', openAIError);
@@ -293,6 +300,7 @@ client.messages.onMessageSentToBusiness(async (event) => {
             alertMessage = "🚨 Potentially problematic message detected. Please review this message carefully.";
             spamReason = "Fallback: aggressive language or profanity detected";
             console.log(`Message flagged as spam using fallback: ${spamReason}`);
+            console.log(`Alert message length: ${alertMessage.length} characters`);
           }
         }
       }
@@ -304,6 +312,7 @@ client.messages.onMessageSentToBusiness(async (event) => {
         console.log(`Starting to generate suggested response for spam reason: ${spamReason}`);
         suggestedResponse = await generateSuggestedResponse(messageContent || '', spamReason);
         console.log(`Generated suggested response for agent: ${suggestedResponse}`);
+        console.log(`Suggested response length: ${suggestedResponse.length} characters`);
       } catch (error) {
         console.error('Error generating suggested response:', error);
         suggestedResponse = "Thank you for your message. I'd be happy to help you. Could you please provide more details about your request so I can assist you better?";
@@ -314,6 +323,27 @@ client.messages.onMessageSentToBusiness(async (event) => {
 
       try {
         console.log(`Starting to send spam alert to conversation ${event.data.conversationId}`);
+        // Truncate the suggested response to fit within the 256 character limit
+        const maxPreviewLength = 256;
+        const alertPrefix = `${alertMessage}\n\n💡 Suggested Response: `;
+        const availableLength = maxPreviewLength - alertPrefix.length;
+        
+        let truncatedResponse = suggestedResponse;
+        if (suggestedResponse.length > availableLength) {
+          truncatedResponse = suggestedResponse.substring(0, availableLength - 3) + '...';
+        }
+        
+        const finalPreviewText = alertPrefix + truncatedResponse;
+        const fullMessageText = `${alertMessage}\n\n💡 Suggested Response for Agent:\n${suggestedResponse}`;
+        
+        console.log(`Final preview text length: ${finalPreviewText.length}/${maxPreviewLength} characters`);
+        console.log(`Full message text length: ${fullMessageText.length} characters`);
+        console.log(`Preview text (truncated): "${finalPreviewText}"`);
+        console.log(`Full message text: "${fullMessageText}"`);
+        
+        // Send spam alert with:
+        // - previewText: Truncated to 256 chars for display compliance
+        // - basic.text: Full content for agents to see complete context
         const result = await elevatedClient.messages.sendMessage(event.data.conversationId!, {
           badges: [{
             text: "Chat Spam Alert",
@@ -321,10 +351,12 @@ client.messages.onMessageSentToBusiness(async (event) => {
             iconUrl: "https://static.wixstatic.com/shapes/bec40d_8dc570e465714337a93f5f9c691c209b.svg"
           }],
           content: {
-            previewText: `${alertMessage}\n\n💡 Suggested Response for Agent:\n${suggestedResponse}`,
+            // previewText: Limited to 256 characters for display purposes
+            previewText: finalPreviewText,
             "basic": {
               "items": [{
-                "text": `${alertMessage}\n\n💡 Suggested Response for Agent:\n${suggestedResponse}`
+                // text: Full content without truncation for agents to see complete context
+                "text": fullMessageText
               }]
             }
           },

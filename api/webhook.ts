@@ -66,9 +66,17 @@ async function checkSpamWithOpenAI(content: string): Promise<{ isSpam: boolean; 
 
     console.log(`Checking content with OpenAI: "${content}"`);
 
-    const moderation = await openai.moderations.create({
+    // Add timeout to prevent hanging
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('OpenAI API timeout after 10 seconds')), 10000);
+    });
+
+    const moderationPromise = openai.moderations.create({
       input: content,
     });
+
+    const moderation = await Promise.race([moderationPromise, timeoutPromise]) as any;
+    console.log(`OpenAI moderation API call completed successfully`);
 
     const result = moderation.results[0];
     console.log(`OpenAI moderation result:`, JSON.stringify(result, null, 2));
@@ -154,7 +162,12 @@ Please provide a professional, helpful, and courteous response that:
 
 Your response should be helpful while being cautious about potential spam.`;
 
-    const completion = await openai.chat.completions.create({
+    // Add timeout to prevent hanging
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('OpenAI chat completion timeout after 15 seconds')), 15000);
+    });
+
+    const completionPromise = openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [
         {
@@ -169,6 +182,8 @@ Your response should be helpful while being cautious about potential spam.`;
       max_tokens: 150,
       temperature: 0.7,
     });
+
+    const completion = await Promise.race([completionPromise, timeoutPromise]) as any;
 
     const suggestedResponse = completion.choices[0]?.message?.content?.trim();
     console.log(`Generated suggested response: ${suggestedResponse}`);
@@ -199,6 +214,12 @@ const client = createClient({
 client.messages.onMessageSentToBusiness(async (event) => {
   console.log(`onMessageSentToBusiness invoked with data:`, event);
   console.log(`App instance ID:`, event.metadata.instanceId);
+  
+  // Add overall timeout to prevent hanging
+  const overallTimeout = setTimeout(() => {
+    console.error('Message processing timed out after 30 seconds');
+  }, 30000);
+  
   const elevatedClient = createClient({
     auth: AppStrategy({
       appId: APP_ID,
@@ -235,6 +256,8 @@ client.messages.onMessageSentToBusiness(async (event) => {
     let isSpam = false;
     let alertMessage = "";
     let spamReason = "";
+    
+    console.log(`Starting spam detection process for message: "${messageContent}"`);
 
     if (legacySpamResult) {
       // Wix keyword detected - highest priority, skip OpenAI check
@@ -245,14 +268,31 @@ client.messages.onMessageSentToBusiness(async (event) => {
     } else {
       // PRIORITY 2: Only run OpenAI check if Wix keyword not found
       console.log(`No Wix keyword found, running OpenAI moderation check...`);
-      const spamCheck = await checkSpamWithOpenAI(messageContent || '');
-      console.log(`OpenAI spam check result:`, spamCheck);
+      
+      try {
+        const spamCheck = await checkSpamWithOpenAI(messageContent || '');
+        console.log(`OpenAI spam check result:`, spamCheck);
 
-      if (spamCheck.isSpam) {
-        isSpam = true;
-        alertMessage = `🚨 Spam detected: ${spamCheck.reason}. Please review this message carefully.`;
-        spamReason = `OpenAI: ${spamCheck.reason}`;
-        console.log(`Message flagged as spam: ${spamReason}`);
+        if (spamCheck.isSpam) {
+          isSpam = true;
+          alertMessage = `🚨 Spam detected: ${spamCheck.reason}. Please review this message carefully.`;
+          spamReason = `OpenAI: ${spamCheck.reason}`;
+          console.log(`Message flagged as spam: ${spamReason}`);
+        }
+      } catch (openAIError) {
+        console.error('OpenAI moderation check failed, falling back to basic content analysis:', openAIError);
+        
+        // Fallback: Check for obvious problematic content patterns
+        const lowerContent = (messageContent || '').toLowerCase();
+        const hasProfanity = /\b(fuck|shit|damn|bitch|asshole|jerk|wtf)\b/.test(lowerContent);
+        const hasAggressiveLanguage = /\b(your solution doesn't work|can't do|how much of a jerk|what the fuck|paid you)\b/.test(lowerContent);
+        
+        if (hasProfanity || hasAggressiveLanguage) {
+          isSpam = true;
+          alertMessage = "🚨 Potentially problematic message detected. Please review this message carefully.";
+          spamReason = "Fallback: aggressive language or profanity detected";
+          console.log(`Message flagged as spam using fallback: ${spamReason}`);
+        }
       }
     }
 
@@ -260,6 +300,7 @@ client.messages.onMessageSentToBusiness(async (event) => {
     let suggestedResponse = "";
     if (isSpam) {
       try {
+        console.log(`Starting to generate suggested response for spam reason: ${spamReason}`);
         suggestedResponse = await generateSuggestedResponse(messageContent || '', spamReason);
         console.log(`Generated suggested response for agent: ${suggestedResponse}`);
       } catch (error) {
@@ -301,8 +342,14 @@ client.messages.onMessageSentToBusiness(async (event) => {
     } else {
       console.log(`Message passed all spam checks: ${messageContent}`);
     }
+    
+    // Clear the overall timeout since processing completed successfully
+    clearTimeout(overallTimeout);
+    console.log(`Message processing completed successfully for conversation: ${event.data.conversationId}`);
   } catch (error) {
     console.error(`Error processing message sent to business event:`, error);
+    // Clear the overall timeout even on error
+    clearTimeout(overallTimeout);
   }
 });
 

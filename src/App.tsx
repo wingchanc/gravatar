@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import * as Icons from "@wix/wix-ui-icons-common";
 import {
   Box,
-  Button,
+  Image,
   Card,
   WixDesignSystemProvider,
   MarketingPageLayout,
@@ -14,6 +14,11 @@ import {
   ToggleSwitch,
   FormField,
   Text,
+  Button,
+  SectionHelper,
+  Input,
+  TextButton,
+  CopyClipboard,
 } from "@wix/design-system";
 import "@wix/design-system/styles.global.css";
 import { dashboard } from "@wix/dashboard";
@@ -130,6 +135,82 @@ const KVStorageToggle = () => {
   );
 };
 
+// Testing Component with sample messages and quick actions
+const TestingSection = ({ siteUrl, siteId }: { siteUrl?: string; siteId?: string }) => {
+  const sampleMessages = [
+    "Your solution doesn't work! I can't do [process №1, process № 2, process №3]. Jesus Christ, how much of a jerk can you be? WTF is your gain from there? I've fu###g paid you $$$!",
+    "This is Wix support. There is an issue on your website."
+  ];
+
+  const liveSiteUrl = siteUrl || '#';
+  const adminChatUrl = siteId ? `https://manage.wix.com/dashboard/${siteId}/inbox` : '#';
+
+  return (
+    <Box direction="vertical" gap="SP3">
+      <SectionHelper
+        title="How to Test"
+        actionText=""
+        onAction={() => {}}
+        onClose={() => {}}
+      >
+        <Box direction="vertical" gap="SP2">
+          <Text size="small">
+            Copy these sample messages to test the spam detection:
+          </Text>
+          
+          {sampleMessages.map((message, index) => (
+            <Box key={index} direction="vertical" gap="SP1">
+              <Text size="small" weight="bold">
+                Sample {index + 1}:
+              </Text>
+              <CopyClipboard value={message} resetTimeout={1500}>
+                {({ isCopied, copyToClipboard }) => (
+                  <Input
+                    readOnly
+                    value={message}
+                    suffix={
+                      <Box verticalAlign="middle" marginRight="SP1">
+                        <TextButton
+                          onClick={() => copyToClipboard()}
+                          size="small"
+                          prefixIcon={<Icons.DuplicateSmall />}
+                        >
+                          {!isCopied ? 'Copy' : 'Copied!'}
+                        </TextButton>
+                      </Box>
+                    }
+                  />
+                )}
+              </CopyClipboard>
+            </Box>
+          ))}
+          
+          <Box gap="SP2" direction="horizontal">
+            <Button
+              as="a"
+              href={liveSiteUrl}
+              target="_blank"
+              disabled={!siteUrl}
+              prefixIcon={<Icons.ExternalLink />}
+            >
+              Open Live Site
+            </Button>
+            <Button
+              as="a"
+              href={adminChatUrl}
+              target="_blank"
+              disabled={!siteId}
+              prefixIcon={<Icons.Chat />}
+            >
+              Open Admin Chat
+            </Button>
+          </Box>
+        </Box>
+      </SectionHelper>
+    </Box>
+  );
+};
+
 function inIframe() {
   try {
     return window.self !== window.top;
@@ -151,7 +232,7 @@ function App() {
     _id: "chat-spam-alert",
     title: "Chat Spam Alert",
     description: "Block spam messages like sales, marketing, and unsolicited messages.",
-    image: null,
+    image: "https://static.wixstatic.com/media/bec40d_eeeb3626d1314775af5dded27f01fbff~mv2.png",
     redirectUrl: "https://www.wix.com"
   } as any);
   const token = new URLSearchParams(window.location.search).get("token");
@@ -186,7 +267,9 @@ function App() {
     } catch (error) {
       throw error;
     }
-    
+  }, []);
+
+  useEffect(() => {
     // Get app instance data using Wix API
     if (client) {
       client.appInstances.getAppInstance()
@@ -197,7 +280,7 @@ function App() {
           console.error("Error getting app instance:", error);
         });
     }
-  }, []);
+  }, [client]);
 
   useEffect(() => {
     if (token && message?.redirectUrl) {
@@ -255,6 +338,7 @@ function App() {
                         </Button>
                       </Box> */}
                       <KVStorageToggle />
+                      <TestingSection siteUrl={instanceData?.site?.url} siteId={instanceData?.site?.siteId} />
                     </Box>
                   }
                 />
@@ -289,13 +373,7 @@ function App() {
             </Box>
           }
           image={
-            message._id ? (
-              message.image
-            ) : (
-              <SkeletonGroup skin="light">
-                <SkeletonRectangle height={"936px"} width={"100%"} />
-              </SkeletonGroup>
-            )
+            <Image src={message.image} />
           }
         />
       </Card>

@@ -4,7 +4,7 @@ import { appInstances } from "@wix/app-management";
 import { messages } from '@wix/inbox';
 import { Redis } from '@upstash/redis';
 import OpenAI from 'openai';
-
+export const dynamic = 'force-dynamic';
 export const config = {
   runtime: 'edge',
 };

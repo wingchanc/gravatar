@@ -394,6 +394,7 @@ export default async function handler(req: Request): Promise<Response> {
   try {
     // Get the raw body as text for webhook processing
     const body = await req.text();
+    console.log('Body:', body);
 
     // Process the webhook synchronously before sending response
     // This ensures Vercel doesn't terminate the function before processing completes

@@ -171,7 +171,12 @@ client.members.onMemberCreated(async (event) => {
         {
           profile: {
             photo: {
-              url: `wix:image://v1/${file?._id}`,
+              _id: file?._id,
+              url: file?.url,
+              height: 200,
+              width: 200,
+              offsetX: 0,
+              offsetY: 0,
             },
           },
         }

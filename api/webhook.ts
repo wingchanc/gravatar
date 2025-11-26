@@ -3,6 +3,7 @@ import { members } from "@wix/members";
 import { appInstances } from "@wix/app-management";
 import { Redis } from "@upstash/redis";
 import { generateGravatarHash, getGravatarUrl } from "./gravatar";
+import { files } from "@wix/media";
 
 export const dynamic = "force-dynamic";
 export const config = {
@@ -148,7 +149,7 @@ client.members.onMemberCreated(async (event) => {
           process.env.WIX_APP_SECRET || "2a330c94-b3b1-4c5c-bb83-d740d788c9fc",
         instanceId: instanceId,
       }),
-      modules: { members, appInstances },
+      modules: { members, appInstances, files },
     });
 
     // Update member profile with Gravatar URL
@@ -160,12 +161,17 @@ client.members.onMemberCreated(async (event) => {
       // Update member profile photo
       // Note: The profile.photo.url field should be updated via the updateMember API
       // The SDK expects an object with _id and member properties
+      const { file } = await elevatedClient.files.importFile(gravatarUrl, {
+        mediaType: "IMAGE",
+        mimeType: "image/jpeg",
+      });
+      console.log(`File imported:`, file);
       const updatedMember = await elevatedClient.members.updateMember(
         memberId,
         {
           profile: {
             photo: {
-              url: gravatarUrl,
+              url: `wix:image://v1/${file?._id}`,
             },
           },
         }

@@ -9,7 +9,7 @@ const redis = new Redis({
   token: process.env.KV_REST_API_TOKEN!,
 });
 
-const KEY_PREFIX = 'block-fake-email-toggle:';
+const KEY_PREFIX = 'gravatar-auto-populate-toggle:';
 
 // Base64url helpers compatible with Edge runtime
 function base64UrlToBase64(input: string): string {

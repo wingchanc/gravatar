@@ -1,46 +1,77 @@
-# Getting Started with Create React App
+# Gravatar: Auto Profile Images
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A Wix app that automatically populates profile images for new members using Gravatar based on their email addresses.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- **Automatic Profile Image Population**: When enabled, the app automatically sets profile images for new members using Gravatar
+- **Toggle Control**: Site owners can easily enable or disable the auto-populate feature via a dashboard toggle
+- **Smart Detection**: Only updates profile images if the member doesn't already have one
+- **Gravatar Integration**: Uses Gravatar's MD5 hash-based email lookup system
+- **Default Fallback**: Uses Gravatar's identicon as a default when no Gravatar image exists
 
-### `npm start`
+## How It Works
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+1. **Member Signs Up**: When a new member registers on your Wix site, the app detects the signup event via `members.onMemberCreated`
+2. **Gravatar Lookup**: The app generates a Gravatar URL based on the member's email address using MD5 hashing
+3. **Profile Image Update**: If the member doesn't already have a profile image, it's automatically set to their Gravatar image (or a default identicon if no Gravatar exists)
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+## Installation
 
-### `npm test`
+1. Install dependencies:
+```bash
+npm install
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+2. Set up environment variables:
+   - `KV_REST_API_URL`: Upstash Redis REST API URL
+   - `KV_REST_API_TOKEN`: Upstash Redis REST API token
+   - `WIX_APP_SECRET`: Your Wix app secret (optional, defaults to hardcoded value)
 
-### `npm run build`
+3. Build the app:
+```bash
+npm run build
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Usage
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+1. Install the app on your Wix site
+2. Navigate to the app settings in your Wix dashboard
+3. Toggle "Auto Populate Profile Images" to enable/disable the feature
+4. When enabled, new member signups will automatically get Gravatar profile images
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Development
 
-### `npm run eject`
+```bash
+# Start development server
+npm start
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+# Run tests
+npm test
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+# Build for production
+npm run build
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+## API Endpoints
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+### `/api/toggle-state`
+- **GET**: Retrieve the current toggle state for an app instance
+- **POST**: Update the toggle state for an app instance
 
-## Learn More
+### `/api/webhook`
+- **POST**: Handles Wix webhook events, specifically `members.onMemberCreated`
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### `/api/health`
+- **GET**: Health check endpoint
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Technical Details
+
+- **Runtime**: Vercel Edge Functions
+- **Storage**: Upstash Redis for toggle state persistence
+- **Gravatar API**: Uses Gravatar's public API with MD5 email hashing
+- **Wix SDK**: Uses `@wix/members` for member event handling and profile updates
+
+## License
+
+Private - All rights reserved

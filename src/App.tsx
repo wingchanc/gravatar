@@ -18,17 +18,15 @@ import {
   SectionHelper,
   Input,
   TextButton,
-  CopyClipboard,
 } from "@wix/design-system";
 import "@wix/design-system/styles.global.css";
 import { dashboard } from "@wix/dashboard";
 import { createClient } from "@wix/sdk";
-import TagManager from "react-gtm-module";
 import { embeddedScripts, appInstances } from "@wix/app-management";
 
-// KV Storage Toggle Component
-// This component manages the state of the "Get Alert on Spam Messages?" toggle using KV storage
-const KVStorageToggle = () => {
+// Gravatar Toggle Component
+// This component manages the state of the "Auto Populate Profile Images" toggle using KV storage
+const GravatarToggle = () => {
   const [isEnabled, setIsEnabled] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -101,7 +99,7 @@ const KVStorageToggle = () => {
   if (isLoading) {
     return (
       <Box direction="vertical" gap="SP2">
-        <Text size="small">Loading toggle settings...</Text>
+        <Text size="small">Loading settings...</Text>
         <Loader size="tiny" />
       </Box>
     );
@@ -110,7 +108,7 @@ const KVStorageToggle = () => {
   return (
     <Box direction="vertical" gap="SP2">
       <FormField
-        label="Get Alert on Spam Messages?"
+        label="Auto Populate Profile Images?"
         labelPlacement="left"
         stretchContent={false}
       >
@@ -127,65 +125,56 @@ const KVStorageToggle = () => {
       )}
       <Text size="small" secondary>
         {isEnabled 
-          ? "You will receive an alert when a spam message is detected."
-          : "You will not receive an alert when a spam message is detected."
+          ? "Profile images will be automatically populated from Gravatar when members sign up."
+          : "Profile images will not be automatically populated. Members can set their own images."
         }
       </Text>
     </Box>
   );
 };
 
-// Testing Component with sample messages and quick actions
-const TestingSection = ({ siteUrl, siteId }: { siteUrl?: string; siteId?: string }) => {
-  const sampleMessages = [
-    "Your solution doesn't work! I can't do [process №1, process № 2, process №3]. Jesus Christ, how much of a jerk can you be? WTF is your gain from there? I've fu###g paid you $$$!",
-    "This is Wix support. There is an issue on your website."
-  ];
-
+// Information Component explaining how Gravatar works
+const InfoSection = ({ siteUrl, siteId }: { siteUrl?: string; siteId?: string }) => {
   const liveSiteUrl = siteUrl || '#';
-  const adminChatUrl = siteId ? `https://manage.wix.com/dashboard/${siteId}/inbox` : '#';
 
   return (
     <Box direction="vertical" gap="SP3">
       <SectionHelper
-        title="How to Test"
+        title="How It Works"
         actionText=""
         onAction={() => {}}
         onClose={() => {}}
       >
         <Box direction="vertical" gap="SP2">
           <Text size="small">
-            Copy these sample messages to test the spam detection:
+            When enabled, this app automatically populates profile images for new members using Gravatar:
           </Text>
+          <Box direction="vertical" gap="SP1">
+            <Text size="small" weight="bold">
+              1. Member Signs Up
+            </Text>
+            <Text size="small" secondary>
+              When a new member registers on your site, the app detects the signup event.
+            </Text>
+          </Box>
+          <Box direction="vertical" gap="SP1">
+            <Text size="small" weight="bold">
+              2. Gravatar Lookup
+            </Text>
+            <Text size="small" secondary>
+              The app generates a Gravatar URL based on the member's email address using MD5 hashing.
+            </Text>
+          </Box>
+          <Box direction="vertical" gap="SP1">
+            <Text size="small" weight="bold">
+              3. Profile Image Update
+            </Text>
+            <Text size="small" secondary>
+              If the member doesn't already have a profile image, it's automatically set to their Gravatar image (or a default identicon if no Gravatar exists).
+            </Text>
+          </Box>
           
-          {sampleMessages.map((message, index) => (
-            <Box key={index} direction="vertical" gap="SP1">
-              <Text size="small" weight="bold">
-                Sample {index + 1}:
-              </Text>
-              <CopyClipboard value={message} resetTimeout={1500}>
-                {({ isCopied, copyToClipboard }) => (
-                  <Input
-                    readOnly
-                    value={message}
-                    suffix={
-                      <Box verticalAlign="middle" marginRight="SP1">
-                        <TextButton
-                          onClick={() => copyToClipboard()}
-                          size="small"
-                          prefixIcon={<Icons.DuplicateSmall />}
-                        >
-                          {!isCopied ? 'Copy' : 'Copied!'}
-                        </TextButton>
-                      </Box>
-                    }
-                  />
-                )}
-              </CopyClipboard>
-            </Box>
-          ))}
-          
-          <Box gap="SP2" direction="horizontal">
+          <Box gap="SP2" direction="horizontal" marginTop="SP2">
             <Button
               as="a"
               href={liveSiteUrl}
@@ -194,15 +183,6 @@ const TestingSection = ({ siteUrl, siteId }: { siteUrl?: string; siteId?: string
               prefixIcon={<Icons.ExternalLink />}
             >
               Open Live Site
-            </Button>
-            <Button
-              as="a"
-              href={adminChatUrl}
-              target="_blank"
-              disabled={!siteId}
-              prefixIcon={<Icons.Chat />}
-            >
-              Open Admin Chat
             </Button>
           </Box>
         </Box>
@@ -219,20 +199,15 @@ function inIframe() {
   }
 }
 
-const tagManagerArgs = {
-  gtmId: "GTM-WZQPMC7",
-};
-
 function App() {
-  TagManager.initialize(tagManagerArgs);
   const appId = "1b7fc338-869b-4f77-92bb-9de00fe0bb6b"
   const [client, setClient] = React.useState(null as any);
-  // Hard code the message content for black and white site functionality
+  // Hard code the message content for Gravatar app
   const [message, setMessage] = React.useState({
-    _id: "chat-spam-alert",
-    title: "Chat Spam Alert",
-    description: "Block spam messages like sales, marketing, and unsolicited messages.",
-    image: "https://static.wixstatic.com/media/bec40d_eeeb3626d1314775af5dded27f01fbff~mv2.png",
+    _id: "gravatar-auto-profile-images",
+    title: "Gravatar: Auto Profile Images",
+    description: "Automatically populate profile images for new members using Gravatar based on their email addresses.",
+    image: "https://secure.gravatar.com/avatar/00000000000000000000000000000000?d=identicon&f=y",
     redirectUrl: "https://www.wix.com"
   } as any);
   const token = new URLSearchParams(window.location.search).get("token");
@@ -337,8 +312,8 @@ function App() {
                           {isUpgraded ? "Manage Plan" : "Upgrade to set live"}
                         </Button>
                       </Box> */}
-                      <KVStorageToggle />
-                      <TestingSection siteUrl={instanceData?.site?.url} siteId={instanceData?.site?.siteId} />
+                      <GravatarToggle />
+                      <InfoSection siteUrl={instanceData?.site?.url} siteId={instanceData?.site?.siteId} />
                     </Box>
                   }
                 />

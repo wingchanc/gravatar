@@ -11,41 +11,6 @@ const redis = new Redis({
 
 const KEY_PREFIX = 'gravatar-auto-populate-toggle:';
 
-// Base64url helpers compatible with Edge runtime
-function base64UrlToBase64(input: string): string {
-  const pad = input.length % 4 === 0 ? 0 : 4 - (input.length % 4);
-  return input.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat(pad);
-}
-
-function base64ToUint8Array(base64: string): Uint8Array {
-  const binary = atob(base64);
-  const len = binary.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
-function base64UrlDecodeToBytes(input: string): Uint8Array {
-  return base64ToUint8Array(base64UrlToBase64(input));
-}
-
-function uint8ArrayToBase64Url(bytes: Uint8Array): string {
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  const base64 = btoa(binary);
-  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-}
-
-async function hmacSha256(keyBytes: Uint8Array, dataBytes: Uint8Array): Promise<Uint8Array> {
-  const cryptoKey = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const signature = await crypto.subtle.sign('HMAC', cryptoKey, dataBytes);
-  return new Uint8Array(signature);
-}
-
 async function getInstanceIdFromRequest(req: Request): Promise<string> {
   const fullUrl = new URL(req.url);
   const authHeader = fullUrl.searchParams.get('instance');

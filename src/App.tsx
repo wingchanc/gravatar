@@ -23,6 +23,7 @@ import "@wix/design-system/styles.global.css";
 import { dashboard } from "@wix/dashboard";
 import { createClient } from "@wix/sdk";
 import { embeddedScripts, appInstances } from "@wix/app-management";
+import MembersList from "./MembersList";
 
 // Gravatar Toggle Component
 // This component manages the state of the "Auto Populate Profile Images" toggle using KV storage
@@ -202,6 +203,7 @@ function inIframe() {
 function App() {
   const appId = "655104d6-d14c-42d8-8197-38384e647359"
   const [client, setClient] = React.useState(null as any);
+  const [showMembersList, setShowMembersList] = React.useState(false);
   // Hard code the message content for Gravatar app
   const [message, setMessage] = React.useState({
     _id: "gravatar-auto-profile-images",
@@ -277,6 +279,21 @@ function App() {
     );
   }
 
+  // Show members list page
+  if (showMembersList) {
+    return (
+      <WixDesignSystemProvider features={{ newColorsBranding: true }}>
+        <Page height="100vh">
+          <Page.Content>
+            <Box padding="SP6">
+              <MembersList onBack={() => setShowMembersList(false)} />
+            </Box>
+          </Page.Content>
+        </Page>
+      </WixDesignSystemProvider>
+    );
+  }
+
   return (
     <WixDesignSystemProvider features={{ newColorsBranding: true }}>
       <Card>
@@ -313,6 +330,14 @@ function App() {
                         </Button>
                       </Box> */}
                       <GravatarToggle />
+                      <Box gap="SP2" direction="horizontal" marginTop="SP2">
+                        <Button
+                          prefixIcon={<Icons.Add />}
+                          onClick={() => setShowMembersList(true)}
+                        >
+                          Add avatar to existing members
+                        </Button>
+                      </Box>
                       <InfoSection siteUrl={instanceData?.site?.url} siteId={instanceData?.site?.siteId} />
                     </Box>
                   }

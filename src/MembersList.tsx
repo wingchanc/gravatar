@@ -178,7 +178,7 @@ const MembersList: React.FC<MembersListProps> = ({ onBack }) => {
               border="round"
               size="small"
               popoverProps={{ appendTo: 'window' }}
-              onSelect={(avatarStatus) => setFilter({ ...filter, avatarStatus })}
+              onSelect={(avatarStatus: any) => setFilter({ ...filter, avatarStatus })}
               valueParser={({ value }) => value}
             />
           </TableToolbar.Item>
@@ -297,7 +297,7 @@ const MembersList: React.FC<MembersListProps> = ({ onBack }) => {
       {error && (
         <SectionHelper
           title="Error"
-          appearance="error"
+          skin="danger"
           onClose={() => setError(null)}
         >
           <Text size="small">{error}</Text>
@@ -307,7 +307,7 @@ const MembersList: React.FC<MembersListProps> = ({ onBack }) => {
       {updateResults && (
         <SectionHelper
           title="Update Results"
-          appearance={
+          skin={
             updateResults.failed.length === 0 ? "success" : "warning"
           }
           onClose={() => setUpdateResults(null)}
@@ -331,7 +331,7 @@ const MembersList: React.FC<MembersListProps> = ({ onBack }) => {
           columns={columns}
           showSelection
           selectedIds={selectedIds}
-          onSelectionChange={(ids: string[]) => setSelectedIds(ids)}
+          onSelectionChanged={(ids: any) => setSelectedIds(ids)}
         >
           <Table.ToolbarContainer>
             {(selectionContext: any) =>

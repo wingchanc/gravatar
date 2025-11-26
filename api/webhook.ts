@@ -61,7 +61,7 @@ const client = createClient({
 });
 
 // Set up the member created event handler
-members.onMemberCreated(async (event) => {
+client.members.onMemberCreated(async (event) => {
   console.log(`onMemberCreated event received with data:`, event);
   console.log(`App instance ID:`, event.metadata.instanceId);
   

@@ -10,15 +10,15 @@ export const config = {
 };
 
 const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAl3qTwi8xtNBIU3H9E9qG
-gZtZzun/GBkaRB59hoQfzIhtEndcWkOVwYTSnUV9VggWyYDdfn00DDXqNyQ2HZ/b
-gaGC+ZaOXa5pK0okNO2WdlEHMfkEY3xREnxQKiAsDE6X5VC14sFchvFE9MKvzORu
-5qx6PNEajDwXWZgVZHiSy6Dra6VWbDMXhmzy2uGHh9DRy5NRAgCkmIRW802qJY2m
-fGxLQVJkDdnJd+rf6ADmmZs88XDFioo38hstCedTV93AlHE2Ix0Y2I2nZyeMtu5O
-6dydYhfK8d6S69wvsJIdc/OebYobbKL6pENep09/4hdVwuMCcbkFxSMgXCGZJ/+M
-VQIDAQAB
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuJl8S8fFG7/bXOwaOmhP
+k1eu1PYpcmklt9A32vPzg61DXj3mxyhBlwHyZwLBwyTSfOkUtM3ai4IigeSNg6K1
+xV0UcjnDvsu7zhyIO7U6QVf+UDkPmCBgj4lNCwpDdIJm4dBdLhW77mbyYeldiqy7
+HTROblkw5TG4/8fLrl4mOrtDs4VZvY18a3VVAJRll+YQu25ILzZd2MwL5/+Dgb1a
+n8h+OF9dJ4d4TWJRxIJ36gIBZl72ofVvj/dvanzMm5AYpurXF6tU7p2ojVJPz6Dg
+rA+Zl1Ez7ac76BQzADe728iNRtWzLoWB4zQ6uHvH+11psaesOb8b3tI+CC/DG+vB
+GwIDAQAB
 -----END PUBLIC KEY-----`;
-const APP_ID = "1b7fc338-869b-4f77-92bb-9de00fe0bb6b";
+const APP_ID = "655104d6-d14c-42d8-8197-38384e647359";
 
 // Redis client for checking toggle state
 const redis = new Redis({
@@ -127,7 +127,7 @@ members.onMemberCreated(async (event) => {
       auth: AppStrategy({
         appId: APP_ID,
         publicKey: PUBLIC_KEY,
-        appSecret: process.env.WIX_APP_SECRET || "bb5ac073-63a9-4178-9ab0-fc36c049fc0a",
+        appSecret: process.env.WIX_APP_SECRET || "2a330c94-b3b1-4c5c-bb83-d740d788c9fc",
         instanceId: instanceId,
       }),
       modules: { members, appInstances },

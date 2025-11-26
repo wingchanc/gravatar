@@ -200,7 +200,7 @@ function inIframe() {
 }
 
 function App() {
-  const appId = "1b7fc338-869b-4f77-92bb-9de00fe0bb6b"
+  const appId = "655104d6-d14c-42d8-8197-38384e647359"
   const [client, setClient] = React.useState(null as any);
   // Hard code the message content for Gravatar app
   const [message, setMessage] = React.useState({
